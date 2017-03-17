@@ -6,11 +6,12 @@ var appliesToExtraTemplate = document.createElement("span");
 appliesToExtraTemplate.className = "applies-to-extra";
 appliesToExtraTemplate.innerHTML = " " + t('appliesDisplayTruncatedSuffix');
 
-chrome.runtime.sendMessage({method: "getStyles"}, showStyles);
+showStyles();
 
 function showStyles(styles) {
-	if (!styles) { // Chrome is starting up
-		chrome.runtime.sendMessage({method: "getStyles"}, showStyles);
+	if (!styles) {
+	  // also happens on Chrome startup
+		chrome.runtime.sendMessage({method: "getStyles", code: false}, showStyles);
 		return;
 	}
 	if (!installed) {
