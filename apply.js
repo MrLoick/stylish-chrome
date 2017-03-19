@@ -22,8 +22,9 @@ function requestStyles(options = {}) {
 	}, options);
 	if (typeof getStyles !== 'undefined') {
 		getStyles(request, applyStyles);
+	} else {
+		chrome.runtime.sendMessage(request, applyStyles);
 	}
-	chrome.runtime.sendMessage(request, applyStyles);
 }
 
 chrome.runtime.onMessage.addListener(applyOnMessage);
