@@ -17,26 +17,51 @@ function getDatabase(ready, error) {
 	}
 };
 
+
 // Let manage/popup/edit reuse background page variables
 // Note, only "var"-declared variables are visible from another extension page
-const bg = (win => win == window ? null : win)(chrome.extension.getBackgroundPage());
-var cachedStyles = bg ? bg.cachedStyles : null;
-var cachedStylesNoCode = bg ? bg.cachedStylesNoCode : null;
-var cachedStylesById = bg ? bg.cachedStylesById : new Map();
-var cachedFilters = bg ? bg.cachedFilters : new Map();
-var cachingMutex = bg ? bg.cachingMutex : {inProgress: false, onDone: []};
+var cachedStyles = ((bg) => bg && bg.cache || {
+	bg,
+	list: null,
+	noCode: null,
+	byId: new Map(),
+	filters: new Map(),
+	mutex: {
+		inProgress: false,
+		onDone: [],
+	},
+})(chrome.extension.getBackgroundPage());
+
+
+// in case Chrome haven't yet loaded the bg page and displays our page like edit/manage
+function getStylesSafe(options) {
+	return new Promise(resolve => {
+		if (cachedStyles.bg) {
+			getStyles(options, resolve);
+			return;
+		}
+		chrome.runtime.sendMessage(Object.assign({method: 'getStyles'}, options), styles => {
+			if (!styles) {
+				resolve(getStylesSafe(options));
+			} else {
+				cachedStyles = chrome.extension.getBackgroundPage().cachedStyles;
+				resolve(styles);
+			}
+		});
+	});
+}
 
 
 function getStyles(options, callback) {
-	if (cachedStyles) {
+	if (cachedStyles.list) {
 		callback(filterStyles(options));
 		return;
 	}
-	if (cachingMutex.inProgress) {
-		cachingMutex.onDone.push({options, callback});
+	if (cachedStyles.mutex.inProgress) {
+		cachedStyles.mutex.onDone.push({options, callback});
 		return;
 	}
-	cachingMutex.inProgress = true;
+	cachedStyles.mutex.inProgress = true;
 
 	const t0 = performance.now()
 	getDatabase(db => {
@@ -51,25 +76,25 @@ function getStyles(options, callback) {
 				all.push(cursor.value);
 				cursor.continue();
 			} else {
-				cachedStyles = all;
-				cachedStylesNoCode = [];
+				cachedStyles.list = all;
+				cachedStyles.noCode = [];
 				for (let style of all) {
 					const noCode = getStyleWithNoCode(style);
-					cachedStylesNoCode.push(noCode);
-					cachedStylesById.set(style.id, {style, noCode});
+					cachedStyles.noCode.push(noCode);
+					cachedStyles.byId.set(style.id, {style, noCode});
 				}
-				//console.log('%s getStyles %s, invoking cached callbacks: %o', (performance.now() - t0).toFixed(1), JSON.stringify(options), cachingMutex.onDone.map(e => JSON.stringify(e.options)))
+				//console.log('%s getStyles %s, invoking cached callbacks: %o', (performance.now() - t0).toFixed(1), JSON.stringify(options), cache.mutex.onDone.map(e => JSON.stringify(e.options)))
 				try{
 					callback(filterStyles(options));
 				} catch(e){
 					// no error in console, it works
 				}
 
-				cachingMutex.inProgress = false;
-				for (let {options, callback} of cachingMutex.onDone) {
+				cachedStyles.mutex.inProgress = false;
+				for (let {options, callback} of cachedStyles.mutex.onDone) {
 					callback(filterStyles(options));
 				}
-				cachingMutex.onDone = [];
+				cachedStyles.mutex.onDone = [];
 			}
 		};
 	}, null);
@@ -89,48 +114,48 @@ function invalidateCache(andNotify, {added, updated, deletedId} = {}) {
 	if (andNotify) {
 		chrome.runtime.sendMessage({method: 'invalidateCache', added, updated, deletedId});
 	}
-	if (!cachedStyles) {
+	if (!cachedStyles.list) {
 		return;
 	}
 	if (updated) {
-		const cached = cachedStylesById.get(updated.id);
+		const cached = cachedStyles.byId.get(updated.id);
 		if (cached) {
 			Object.assign(cached.style, updated);
 			Object.assign(cached.noCode, getStyleWithNoCode(updated));
 			//console.log('cache: updated', updated);
 		}
-		cachedFilters.clear();
+		cachedStyles.filters.clear();
 		return;
 	}
 	if (added) {
 		const noCode = getStyleWithNoCode(added);
-		cachedStyles.push(added);
-		cachedStylesNoCode.push(noCode);
-		cachedStylesById.set(added.id, {style: added, noCode});
+		cachedStyles.list.push(added);
+		cachedStyles.noCode.push(noCode);
+		cachedStyles.byId.set(added.id, {style: added, noCode});
 		//console.log('cache: added', added);
-		cachedFilters.clear();
+		cachedStyles.filters.clear();
 		return;
 	}
 	if (deletedId != undefined) {
-		const deletedStyle = (cachedStylesById.get(deletedId) || {}).style;
+		const deletedStyle = (cachedStyles.byId.get(deletedId) || {}).style;
 		if (deletedStyle) {
-			const cachedIndex = cachedStyles.indexOf(deletedStyle);
-			cachedStyles.splice(cachedIndex, 1);
-			cachedStylesNoCode.splice(cachedIndex, 1);
-			cachedStylesById.delete(deletedId);
+			const cachedIndex = cachedStyles.list.indexOf(deletedStyle);
+			cachedStyles.list.splice(cachedIndex, 1);
+			cachedStyles.noCode.splice(cachedIndex, 1);
+			cachedStyles.byId.delete(deletedId);
 			//console.log('cache: deleted', deletedStyle);
-			cachedFilters.clear();
+			cachedStyles.filters.clear();
 			return;
 		}
 	}
-	cachedStyles = null;
-	cachedStylesNoCode = null;
+	cachedStyles.list = null;
+	cachedStyles.noCode = null;
 	//console.log('cache cleared');
-	cachedFilters.clear();
+	cachedStyles.filters.clear();
 }
 
 
-function filterStyles(options) {
+function filterStyles(options = {}) {
 	const t0 = performance.now()
 	const enabled = fixBoolean(options.enabled);
 	const url = 'url' in options ? options.url : null;
@@ -145,12 +170,12 @@ function filterStyles(options) {
 		&& matchUrl == null
 		&& asHash != true) {
 		//console.log('%c%s filterStyles SKIPPED LOOP %s', 'color:gray', (performance.now() - t0).toFixed(1), JSON.stringify(options))
-		return code ? cachedStyles : cachedStylesNoCode;
+		return code ? cachedStyles.list : cachedStyles.noCode;
 	}
 
 	// add \t after url to prevent collisions (not sure it can actually happen though)
 	const cacheKey = '' + enabled + url + '\t' + id + matchUrl + '\t' + code + asHash;
-	const cached = cachedFilters.get(cacheKey);
+	const cached = cachedStyles.filters.get(cacheKey);
 	if (cached) {
 		//console.log('%c%s filterStyles REUSED RESPONSE %s', 'color:gray', (performance.now() - t0).toFixed(1), JSON.stringify(options))
 		return asHash
@@ -159,8 +184,8 @@ function filterStyles(options) {
 	}
 
 	const styles = id == null
-		? (code ? cachedStyles : cachedStylesNoCode)
-		: [code ? cachedStylesById.get(id).style : cachedStylesById.get(id).noCode];
+		? (code ? cachedStyles.list : cachedStyles.noCode)
+		: [code ? cachedStyles.byId.get(id).style : cachedStyles.byId.get(id).noCode];
 	const filtered = asHash ? {} : [];
 
 	for (let i = 0, style; (style = styles[i]); i++) {
@@ -178,7 +203,7 @@ function filterStyles(options) {
 		}
 	}
 	//console.log('%s filterStyles %s', (performance.now() - t0).toFixed(1), JSON.stringify(options))
-	cachedFilters.set(cacheKey, filtered);
+	cachedStyles.filters.set(cacheKey, filtered);
 	return asHash
 		? Object.assign({disableAll: prefs.get('disableAll', false)}, filtered)
 		: filtered;

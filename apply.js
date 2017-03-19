@@ -20,8 +20,8 @@ function requestStyles(options = {}) {
 		enabled: true,
 		asHash: true,
 	}, options);
-	if (typeof getStyles !== 'undefined') {
-		getStyles(request, applyStyles);
+	if (typeof getStylesSafe !== 'undefined') {
+		getStylesSafe(request).then(applyStyles);
 	} else {
 		chrome.runtime.sendMessage(request, applyStyles);
 	}
