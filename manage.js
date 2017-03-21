@@ -104,15 +104,11 @@ function createStyleElement(style) {
 					options.url = url;
 					chrome.windows.create(options);
 				} else {
-					chrome.runtime.sendMessage({
-						method: "openURL",
-						url: url,
-						active: openForegroundTab
-					});
+					openURL({url, active: openForegroundTab});
 				}
 			} else {
 				history.replaceState({scrollY: window.scrollY}, document.title);
-				getActiveTab(function(tab) {
+				getActiveTab().then(tab => {
 					sessionStorageHash("manageStylesHistory").set(tab.id, url);
 					location.href = url;
 				});
