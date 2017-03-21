@@ -11,7 +11,7 @@ getActiveTabRealURL().then(url => {
     isUrlSupported ? getStylesSafe({matchUrl: url, code: false}) : null,
     onDOMready().then(() => initPopup(isUrlSupported ? url : '')),
   ])
-    .then(([styles]) => showStyles(styles));
+    .then(([styles]) => styles && showStyles(styles));
 });
 
 
@@ -34,7 +34,8 @@ function initPopup(url) {
   installed = $('#installed');
 
   // popup width
-  document.body.style.width = (localStorage.popupWidth || '246') + 'px';
+  document.body.style.width =
+    Math.max(200, Math.min(800, Number(localStorage.popupWidth) || 246)) + 'px';
 
   // confirm dialog
   $('#confirm').onclick = e => {
@@ -76,6 +77,7 @@ function initPopup(url) {
     encodeURIComponent(url.startsWith('file:') ? 'file:' : url);
 
   if (!url) {
+    document.body.classList.add('blocked');
     return;
   }
 
