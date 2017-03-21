@@ -1273,14 +1273,14 @@ function save() {
 	}
 	var name = document.getElementById("name").value;
 	var enabled = document.getElementById("enabled").checked;
-	var request = {
-		method: "saveStyle",
+	saveStyle({
 		id: styleId,
 		name: name,
 		enabled: enabled,
+		reason: 'editSave',
 		sections: getSectionsHashes()
-	};
-	chrome.runtime.sendMessage(request, saveComplete);
+	})
+		.then(saveComplete);
 }
 
 function getSectionsHashes() {
@@ -1647,7 +1647,7 @@ function getParams() {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 	switch (request.method) {
 		case "styleUpdated":
-			if (styleId && styleId == request.style.id) {
+			if (styleId && styleId == request.style.id && request.reason != 'editSave') {
 				initWithStyle(request);
 			}
 			break;
