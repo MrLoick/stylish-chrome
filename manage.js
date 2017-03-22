@@ -26,6 +26,7 @@ function createStyleElement(style) {
 	var e = template.style.cloneNode(true);
 	e.setAttribute("class", style.enabled ? "enabled" : "disabled");
 	e.setAttribute("style-id", style.id);
+	e.styleId = style.id;
 	if (style.updateUrl) {
 		e.setAttribute("style-update-url", style.updateUrl);
 	}
@@ -371,28 +372,37 @@ function searchStyles(immediately) {
 		doSearch();
 	} else {
 		clearTimeout(searchStyles.timeout);
-		searchStyles.timeout = setTimeout(doSearch, 100);
+		searchStyles.timeout = setTimeout(doSearch, 200);
 	}
 	function doSearch() {
-		chrome.runtime.sendMessage({method: "getStyles"}, function(styles) {
-			styles.forEach(function(style) {
-				var el = document.querySelector("[style-id='" + style.id + "']");
-				if (el) {
-					el.style.display = !query || isMatchingText(style.name) || isMatchingStyle(style) ? "" : "none";
-				}
-			});
-		});
+		for (let element of installed.children) {
+			const {style} = cachedStyles.byId.get(element.styleId) || {};
+			if (style) {
+				const show = !query || isMatchingText(style.name) || isMatchingStyle(style);
+				element.style.display = show ? '' : 'none';
+			}
+		}
 	}
 	function isMatchingStyle(style) {
-		return style.sections.some(function(section) {
-			return Object.keys(section).some(function(key) {
-				var value = section[key];
+		for (let section of style.sections) {
+			for (let prop in section) {
+				const value = section[prop];
 				switch (typeof value) {
-					case "string": return isMatchingText(value);
-					case "object": return value.some(isMatchingText);
+					case 'string':
+						if (isMatchingText(value)) {
+							return true;
+            }
+            break;
+					case 'object':
+						for (let str of value) {
+							if (isMatchingText(str)) {
+								return true;
+            	}
+						}
+            break;
 				}
-			});
-		});
+			}
+		}
 	}
 	function isMatchingText(text) {
 		return text.toLocaleLowerCase().indexOf(query) >= 0;
@@ -417,7 +427,18 @@ document.addEventListener("DOMContentLoaded", function() {
 	document.getElementById("check-all-updates").addEventListener("click", checkUpdateAll);
 	document.getElementById("apply-all-updates").addEventListener("click", applyUpdateAll);
 	document.getElementById("search").addEventListener("input", searchStyles);
-	searchStyles(true); // re-apply filtering on history Back
+
+	// re-apply filtering on history Back
+	searchStyles(true);
+
+	// focus search field on / key
+	document.addEventListener('keypress', event => {
+		if (event.code == 'Slash'
+		&& !event.target.matches('[type="text"], [type="search"]')) {
+			event.preventDefault();
+			document.getElementById("search").focus();
+    }
+	});
 
 	setupLivePrefs([
 		"manage.onlyEnabled",
