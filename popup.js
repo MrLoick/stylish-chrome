@@ -41,7 +41,7 @@ function initPopup(url) {
   $('#confirm').onclick = e => {
     const cmd = e.target.dataset.cmd;
     if (cmd === 'ok') {
-      deleteStyle($('#confirm').dataset.id, () => {
+      deleteStyle($('#confirm').dataset.id).then(() => {
         // update view with 'No styles installed for this site' message
         if ($('#installed').children.length === 0) {
           showStyles([]);
@@ -156,14 +156,16 @@ function createStyleElement(style) {
   // reuse event listener function references
   const listeners = createStyleElement.listeners = createStyleElement.listeners || {
     checkboxClick() {
-      enableStyle(getClickedStyleId(event), this.checked);
+      enableStyle(getClickedStyleId(event), this.checked)
+        .then(handleUpdate);
     },
     styleNameClick(event) {
       this.checkbox.click();
       event.preventDefault();
     },
     toggleClick(event) {
-      enableStyle(getClickedStyleId(event), this.matches('.enable'));
+      enableStyle(getClickedStyleId(event), this.matches('.enable'))
+        .then(handleUpdate);
     },
     deleteClick(event) {
       doDelete(event);
