@@ -187,7 +187,10 @@ function wildcardAsRegExp(s, flags) {
 }
 
 
-var configureCommands = {
+// isolate deoptimization trigger:
+// https://github.com/petkaantonov/bluebird/wiki/Optimization-killers
+// * Functions that contain object literals that contain __proto__, or get or set declarations.
+const configureCommands = (() => ({
 	get url () {
 		return navigator.userAgent.indexOf('OPR') > -1 ?
 			'opera://settings/configureCommands' :
@@ -198,4 +201,4 @@ var configureCommands = {
 			'url': configureCommands.url
 		});
 	}
-};
+}))();
