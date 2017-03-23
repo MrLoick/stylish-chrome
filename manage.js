@@ -68,6 +68,7 @@ function showStyles(styles = []) {
   const sorted = styles
     .map(style => ({name: style.name.toLocaleLowerCase(), style}))
     .sort((a, b) => a.name < b.name ? -1 : a.name == b.name ? 0 : 1);
+  tDocLoader.stop();
   renderStyles(0);
   // TODO: remember how many styles fit one page to display just that portion first next time
   function renderStyles(index) {
