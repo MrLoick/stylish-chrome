@@ -103,6 +103,11 @@ function getStyleWithNoCode(style) {
 
 
 function invalidateCache(andNotify, {added, updated, deletedId} = {}) {
+	// prevent double-add on echoed invalidation
+	const cached = added && cachedStyles.byId.get(added.id);
+	if (cached) {
+		return;
+	}
 	if (andNotify) {
 		chrome.runtime.sendMessage({method: 'invalidateCache', added, updated, deletedId});
 	}
