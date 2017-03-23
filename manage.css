@@ -8,7 +8,7 @@ a {
   text-decoration-skip: ink;
 }
 
-a:visited {
+#header a:visited {
   color: #333;
 }
 
@@ -39,7 +39,7 @@ a:hover {
 
 .entry {
   margin: 0;
-  padding: 1.25em 2em 1.5em;
+  padding: 1.25em 2em;
   border-top: 1px solid #ddd;
 }
 
@@ -62,7 +62,7 @@ img[src*="world"] {
   text-decoration: none;
 }
 
-.style-name a:hover {
+.style-name-link:hover {
   text-decoration: underline;
   color: black;
 }
@@ -75,6 +75,19 @@ img[src*="world"] {
 .actions {
   padding-left: 15px;
   margin-bottom: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.actions > * {
+  margin-bottom: .25rem;
+}
+
+.actions > *:not(:last-child) {
+  margin-right: .25rem;
 }
 
 .applies-to > :first-child {
