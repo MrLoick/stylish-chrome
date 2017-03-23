@@ -232,6 +232,13 @@ class EntryOnClick {
 function handleUpdate(style, {reason} = {}) {
   const element = createStyleElement(style);
   const oldElement = $(`[style-id="${style.id}"]`, installed);
+  if (reason == 'update' || reason == 'editSave') {
+    element.addEventListener('animationend', function _() {
+      element.removeEventListener('animationend', _);
+      element.classList.remove('highlight');
+    });
+    element.classList.add('highlight');
+  }
   if (!oldElement) {
     installed.appendChild(element);
   } else {

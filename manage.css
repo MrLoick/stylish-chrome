@@ -156,6 +156,20 @@ img[src*="world"] {
   display: none;
 }
 
+/* highlight updated/added styles */
+.highlight {
+  animation: highlight 10s cubic-bezier(0,.82,.47,.98);
+}
+
+@keyframes highlight {
+  from {
+    background-color: rgba(128, 128, 128, .5);
+  }
+  to {
+    background-color: none;
+  }
+}
+
 .hidden {
   display: none
 }
